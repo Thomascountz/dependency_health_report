@@ -1,6 +1,6 @@
-Dir[File.join(__dir__, 'lib', '**', '*.rb')].each { |file| require file }
+Dir[File.join(__dir__, "lib", "**", "*.rb")].each { |file| require file }
 
-require 'bundler'
+require "bundler"
 
 class DependencyHealthReport
   def initialize(
@@ -26,10 +26,12 @@ class DependencyHealthReport
   end
 end
 
-# Main Execution
+lockfile = Bundler::LockfileParser.new(DATA.read)
+dependency_analyzer = DependencyAnalyzer.new(RubyGemsFetcher.new)
+
 DependencyHealthReport.new(
-  Bundler::LockfileParser.new(DATA.read),
-  analyzer: DependencyAnalyzer.new(GemFetcher.new),
+  lockfile,
+  analyzer: dependency_analyzer,
   reporters: [ConsoleReporter.new]
 ).run
 

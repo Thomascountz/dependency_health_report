@@ -1,4 +1,4 @@
-require_relative 'reporter'
+require_relative "reporter"
 
 class ConsoleReporter < Reporter
   def generate(dependency_freshness, cumulative_risk_profile, rating, cumulative_libyear_in_days)

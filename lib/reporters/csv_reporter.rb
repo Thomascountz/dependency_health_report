@@ -1,5 +1,5 @@
-require_relative 'reporter'
-require 'csv'
+require_relative "reporter"
+require "csv"
 
 class CsvReporter < Reporter
   def generate(dependency_freshness, cumulative_risk_profile, rating, cumulative_libyear_in_days, file_path = "out/dependency_freshness_report.csv")
