@@ -3,16 +3,14 @@ require "sqlite3"
 
 class SqliteReporter < Reporter
   def initialize(db_path = "out/dependency_freshness_report.db")
-    super()
     @db = SQLite3::Database.new(db_path)
     create_table
   end
 
-  def generate(dependency_freshness, cumulative_risk_profile, rating, cumulative_libyear_in_days)
+  def generate(dependency_freshness)
     dependency_freshness.each do |gem_name, data|
-      category = risk_category_from_distance(data.version_distance)
-      @db.execute("INSERT OR REPLACE INTO reports (gem_name, current_version, latest_version, version_distance, risk_category, type, age_in_days, action) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [gem_name, data.current_version, data.latest_version, data.version_distance, category.to_s.capitalize, data.is_direct ? "Direct" : "Transitive", data.age_in_days, action_for_category(category)])
+      @db.execute("INSERT OR REPLACE INTO reports (gem_name, current_version, latest_version, version_distance, age_in_days) VALUES (?, ?, ?, ?, ?)",
+        [gem_name, data.current_version, data.latest_version, data.version_distance, data.age_in_days])
     end
     puts "SQLite report generated in #{@db.filename}"
   end
@@ -21,25 +19,22 @@ class SqliteReporter < Reporter
 
   def create_table
     @db.execute <<-SQL
-      CREATE TABLE IF NOT EXISTS reports (
+      DROP TABLE IF EXISTS reports;
+    SQL
+
+    @db.execute <<-SQL
+      CREATE TABLE reports (
         id INTEGER PRIMARY KEY,
         gem_name TEXT UNIQUE,
         current_version TEXT,
         latest_version TEXT,
         version_distance INTEGER,
-        risk_category TEXT,
-        type TEXT,
-        age_in_days INTEGER,
-        action TEXT
+        age_in_days INTEGER
       );
     SQL
 
     @db.execute <<-SQL
       CREATE INDEX IF NOT EXISTS index_gem_name ON reports (gem_name);
-    SQL
-
-    @db.execute <<-SQL
-      CREATE INDEX IF NOT EXISTS index_risk_category ON reports (risk_category);
     SQL
   end
 end

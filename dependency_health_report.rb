@@ -15,19 +15,21 @@ class DependencyHealthReport
   end
 
   def run
-    dependency_freshness, cumulative_libyear_in_days = @analyzer.calculate_dependency_freshness(@lockfile_data, @direct_dependencies)
-    risk_profile = @analyzer.categorize_risks(dependency_freshness)
-    cumulative_risk_profile = @analyzer.calculate_cumulative_risk_profile(risk_profile, dependency_freshness.size)
-    rating = @analyzer.determine_rating(cumulative_risk_profile)
-
+    dependency_freshness = @analyzer.calculate_dependency_freshness(@lockfile_data, @direct_dependencies)
     @reporters.each do |reporter|
-      reporter.generate(dependency_freshness, cumulative_risk_profile, rating, cumulative_libyear_in_days)
+      reporter.generate(dependency_freshness)
     end
   end
 end
 
-lockfile = Bundler::LockfileParser.new(DATA.read)
-dependency_analyzer = DependencyAnalyzer.new(RubyGemsFetcher.new)
+lockfile = Bundler::LockfileParser.new(File.read(DATA))
+remotes = lockfile.sources.flat_map do |source|
+  next [] unless source.respond_to?(:remotes)
+
+  source.remotes.map(&:to_s)
+end.uniq
+ruby_gems_fetcher = RubyGemsFetcher.new(remotes: remotes)
+dependency_analyzer = DependencyAnalyzer.new(ruby_gems_fetcher)
 
 DependencyHealthReport.new(
   lockfile,
