@@ -9,7 +9,9 @@ class CsvReporter < Reporter
         "Current Version",
         "Latest Version",
         "Version Distance",
-        "Age in Days"
+        "Libyear (Days)",
+        "Status",
+        "Status Message"
       ]
 
       dependency_freshness.each do |gem_name, data|
@@ -18,7 +20,9 @@ class CsvReporter < Reporter
           data.current_version,
           data.latest_version,
           data.version_distance,
-          data.age_in_days
+          data.libyear_in_days,
+          data.status,
+          data.status_message
         ]
       end
     end

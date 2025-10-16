@@ -6,10 +6,12 @@ class ConsoleReporter < Reporter
 
     dependency_freshness.each do |gem_name, data|
       puts "#{gem_name}:"
-      puts "  Current Version:  #{data.current_version}"
-      puts "  Latest Version:   #{data.latest_version}"
-      puts "  Version Distance: #{data.version_distance}"
-      puts "  Age in Days:      #{data.age_in_days || "Unknown"}"
+      puts "  Message:           #{data.status_message}" if data.status_message
+      puts "  Current Version:   #{data.current_version}"
+      puts "  Latest Version:    #{data.latest_version || "Unknown"}"
+      puts "  Version Distance:  #{data.version_distance.nil? ? "Unknown" : data.version_distance}"
+      libyear_display = data.libyear_in_days.nil? ? "Unknown" : data.libyear_in_days
+      puts "  Libyear (days):    #{libyear_display}"
     end
   end
 end
