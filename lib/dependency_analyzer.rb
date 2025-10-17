@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "bundler"
 require "date"
 require "logger"
@@ -8,12 +10,14 @@ class DependencyAnalyzer
     @logger = logger
   end
 
-  def calculate_dependency_freshness(lockfile, direct_dependencies, as_of: nil)
-    lockfile.specs.each_with_object({}) do |spec, memo|
+  def calculate_dependency_freshness(lockfile, as_of: nil)
+    direct_dependencies = lockfile.dependencies.keys
+
+    lockfile.specs.each_with_object({}) do |spec, results|
       next unless direct_dependencies.include?(spec.name)
 
       info = build_gem_info(spec, as_of: as_of)
-      memo[spec.name] = info if info
+      results[spec.name] = info if info
     end
   end
 
@@ -33,7 +37,7 @@ class DependencyAnalyzer
       )
     end
 
-    remote = remote_uri_for(spec)
+    remote = spec.source&.remotes&.first&.host
     unless remote
       return metadata_missing_info(
         gem_name,
@@ -43,7 +47,7 @@ class DependencyAnalyzer
       )
     end
 
-    versions = @gem_fetcher.fetch_gem_versions(gem_name, remote: remote)
+    versions = @gem_fetcher.fetch_gem_versions(gem_name, remote_host: remote)
     unless versions&.any?
       return metadata_missing_info(
         gem_name,
@@ -72,20 +76,24 @@ class DependencyAnalyzer
 
     unless version_distance
       current_version_metadata = versions.find { |version| version["number"] == current_version }
-      return metadata_missing_info(
-        gem_name,
-        current_version,
-        :current_version_missing,
-        "Skipping comparison for #{gem_name}: installed version #{current_version} missing from metadata"
-      ) unless current_version_metadata
+      unless current_version_metadata
+        return metadata_missing_info(
+          gem_name,
+          current_version,
+          :current_version_missing,
+          "Skipping comparison for #{gem_name}: installed version #{current_version} missing from metadata"
+        )
+      end
 
       current_release_date = safe_parse_date(current_version_metadata["created_at"])
-      return metadata_missing_info(
-        gem_name,
-        current_version,
-        :release_date_missing,
-        "Skipping comparison for #{gem_name}: missing release date for installed version"
-      ) unless current_release_date
+      unless current_release_date
+        return metadata_missing_info(
+          gem_name,
+          current_version,
+          :release_date_missing,
+          "Skipping comparison for #{gem_name}: missing release date for installed version"
+        )
+      end
 
       if as_of && current_release_date > as_of
         return metadata_missing_info(
@@ -127,12 +135,12 @@ class DependencyAnalyzer
       libyear_in_days: libyear_in_days,
       status: :ok
     )
-  rescue Date::Error => error
+  rescue Date::Error => e
     metadata_missing_info(
       gem_name,
       current_version,
       :invalid_release_date,
-      "Skipping comparison for #{gem_name}: #{error.message}"
+      "Skipping comparison for #{gem_name}: #{e.message}"
     )
   end
 
@@ -150,15 +158,15 @@ class DependencyAnalyzer
 
   def unresolved_source_info(gem_name, current_version, source_type, message)
     default_reason = case source_type
-                     when :git
-                       "Git-sourced gems lack remote metadata for comparison"
-                     when :path
-                       "Path-sourced gems lack remote metadata for comparison"
-                     when :unknown
-                       "Dependency source is unknown or unsupported"
-                     else
-                       "Dependency source cannot be resolved"
-                     end
+    when :git
+      "Git-sourced gems lack remote metadata for comparison"
+    when :path
+      "Path-sourced gems lack remote metadata for comparison"
+    when :unknown
+      "Dependency source is unknown or unsupported"
+    else
+      "Dependency source cannot be resolved"
+    end
     log_message = message || default_reason
     @logger.warn(log_message)
 
@@ -204,7 +212,7 @@ class DependencyAnalyzer
 
   def remote_uri_for(spec)
     source = spec.source
-    return nil unless source && source.respond_to?(:remotes)
+    return nil unless source.respond_to?(:remotes)
 
     remote = source.remotes.find { |uri| uri }
     remote&.to_s

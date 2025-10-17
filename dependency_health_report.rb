@@ -1,15 +1,12 @@
+# frozen_string_literal: true
+
 Dir[File.join(__dir__, "lib", "**", "*.rb")].each { |file| require file }
 
 require "bundler"
 require "date"
 
 class DependencyHealthReport
-  def initialize(
-    lockfile_data,
-    analyzer:,
-    reporters:,
-    as_of: nil
-  )
+  def initialize(lockfile_data, analyzer:, reporters:, as_of: nil)
     @lockfile_data = lockfile_data
     @direct_dependencies = lockfile_data.dependencies.keys
     @analyzer = analyzer
@@ -18,11 +15,7 @@ class DependencyHealthReport
   end
 
   def run
-    dependency_freshness = @analyzer.calculate_dependency_freshness(
-      @lockfile_data,
-      @direct_dependencies,
-      as_of: @as_of
-    )
+    dependency_freshness = @analyzer.calculate_dependency_freshness(@lockfile_data, as_of: @as_of)
     @reporters.each do |reporter|
       reporter.generate(dependency_freshness)
     end
@@ -56,15 +49,10 @@ if $PROGRAM_NAME == __FILE__
 
     source.remotes.map(&:to_s)
   end.uniq
-  ruby_gems_fetcher = RubyGemsFetcher.new(remotes: remotes)
-  dependency_analyzer = DependencyAnalyzer.new(ruby_gems_fetcher)
+  gem_info_fetcher = RubyGemsFetcher.new(remotes: remotes)
+  dependency_analyzer = DependencyAnalyzer.new(gem_info_fetcher)
 
-  DependencyHealthReport.new(
-    lockfile,
-    analyzer: dependency_analyzer,
-    reporters: [ConsoleReporter.new],
-    as_of: as_of_date
-  ).run
+  DependencyHealthReport.new(lockfile, analyzer: dependency_analyzer, reporters: [ConsoleReporter.new], as_of: as_of_date).run
 end
 
 # Rail's Gemfile.lock from `main` on 2025-01-24

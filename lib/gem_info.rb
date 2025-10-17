@@ -1,11 +1,13 @@
+# frozen_string_literal: true
+
 class GemInfo
   attr_reader :name,
-              :current_version,
-              :latest_version,
-              :version_distance,
-              :is_direct,
-              :libyear_in_days,
-              :status
+    :current_version,
+    :latest_version,
+    :version_distance,
+    :is_direct,
+    :libyear_in_days,
+    :status
 
   def initialize(
     name:,

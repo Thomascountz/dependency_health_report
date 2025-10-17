@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+
+require_relative "../dependency_health_report.rb"
+require "optparse"
+require "date"
+require "bundler"
+
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: dependency_health_report <Gemfile.lock> [options]"
+  opts.on("--format FORMAT", "Output format (text)") do |format|
+    case format.downcase
+    when "text"
+      options[:reporter] = ConsoleReporter.new
+    else
+      puts "Unsupported format: #{format}. Supported formats are: text"
+      exit 1
+    end
+  end
+
+  opts.on("--as-of DATE", "Analyze dependencies as of the given date (YYYY-MM-DD)") do |date|
+    options[:as_of] = Date.parse(date)
+  rescue ArgumentError
+    puts "Invalid date format. Please use YYYY-MM-DD."
+    exit 1
+  end
+end.parse!
+
+lockfile_path = ARGV[0] || Bundler.default_lockfile
+lockfile = Bundler::LockfileParser.new(File.read(lockfile_path))
+as_of_date = options[:as_of] || Date.today
+gem_info_fetcher = GemInfoFetcher.new
+dependency_analyzer = DependencyAnalyzer.new(gem_info_fetcher)
+
+DependencyHealthReport.new(lockfile, analyzer: dependency_analyzer, reporters: [ConsoleReporter.new], as_of: as_of_date).run

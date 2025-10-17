@@ -2,11 +2,11 @@
 
 source "https://rubygems.org"
 
-gem "json"
-gem "stringio"
-gem "date"
 gem "csv"
-gem "sqlite3"
+gem "date"
 gem "gems"
-gem "standard"
+gem "json"
 gem "logger"
+gem "sqlite3"
+gem "standard"
+gem "stringio"
