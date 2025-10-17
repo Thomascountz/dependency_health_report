@@ -13,7 +13,7 @@ class DependencyHealthReport
   end
 
   def run(as_of: nil)
-    dependency_freshness = @analyzer.calculate_dependency_freshness(@dependency_manifest)
+    dependency_freshness = @analyzer.calculate_dependency_freshness(@dependency_manifest, as_of: as_of)
     @reporter.generate(dependency_freshness)
   end
 end
