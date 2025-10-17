@@ -6,18 +6,14 @@ require "bundler"
 require "date"
 
 class DependencyHealthReport
-  def initialize(lockfile_data, analyzer:, reporters:, as_of: nil)
-    @lockfile_data = lockfile_data
-    @direct_dependencies = lockfile_data.dependencies.keys
+  def initialize(dependency_manifest, analyzer:, reporter:)
+    @dependency_manifest = dependency_manifest
     @analyzer = analyzer
-    @reporters = reporters
-    @as_of = as_of
+    @reporter = reporter
   end
 
-  def run
-    dependency_freshness = @analyzer.calculate_dependency_freshness(@lockfile_data, as_of: @as_of)
-    @reporters.each do |reporter|
-      reporter.generate(dependency_freshness)
-    end
+  def run(as_of: nil)
+    dependency_freshness = @analyzer.calculate_dependency_freshness(@dependency_manifest)
+    @reporter.generate(dependency_freshness)
   end
 end

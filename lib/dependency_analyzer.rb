@@ -4,17 +4,7 @@ require "bundler"
 require "date"
 require "logger"
 
-Result = Data.define(
-  :name,
-  :current_version,
-  :current_version_release_date,
-  :latest_version,
-  :latest_version_release_date,
-  :version_distance,
-  :is_direct,
-  :libyear_in_days,
-  :status
-)
+require_relative "result"
 class DependencyAnalyzer
   def initialize(gem_fetcher, logger: Logger.new($stderr))
     @gem_fetcher = gem_fetcher

@@ -10,7 +10,6 @@ module GemInfoCacher
 
   def with_cache(remote_host, gem_name, &block)
     if ENV["SKIP_CACHE"] == "1"
-      rate_limiter(remote_host)
       return block.call
     end
 
