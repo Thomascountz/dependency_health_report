@@ -2,9 +2,11 @@
 
 source "https://rubygems.org"
 
-gem "json", "~> 2.9"
-gem "stringio", "~> 3.1"
-gem "date", "~> 3.4"
-gem "csv", "~> 3.3"
-gem "sqlite3", "~> 2.5"
-gem "gems", "~> 1.3"
+gem "json"
+gem "stringio"
+gem "date"
+gem "csv"
+gem "sqlite3"
+gem "gems"
+gem "standard"
+gem "logger"

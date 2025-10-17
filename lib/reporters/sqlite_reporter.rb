@@ -29,7 +29,7 @@ class SqliteReporter < Reporter
           data.version_distance,
           data.libyear_in_days,
           data.status.to_s,
-          data.status_message
+          nil
         ]
       )
     end
@@ -40,11 +40,7 @@ class SqliteReporter < Reporter
 
   def create_table
     @db.execute <<-SQL
-      DROP TABLE IF EXISTS reports;
-    SQL
-
-    @db.execute <<-SQL
-      CREATE TABLE reports (
+      CREATE TABLE IF NOT EXISTS reports (
         id INTEGER PRIMARY KEY,
         gem_name TEXT UNIQUE,
         current_version TEXT,
@@ -57,7 +53,7 @@ class SqliteReporter < Reporter
     SQL
 
     @db.execute <<-SQL
-      CREATE INDEX IF NOT EXISTS index_gem_name ON reports (gem_name);
+      CREATE UNIQUE INDEX IF NOT EXISTS index_reports_on_gem_name ON reports (gem_name);
     SQL
   end
 end

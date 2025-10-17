@@ -1,23 +1,20 @@
 require "bundler"
 require "date"
+require "logger"
 
 class DependencyAnalyzer
-  def initialize(gem_fetcher)
+  def initialize(gem_fetcher, logger: Logger.new($stderr))
     @gem_fetcher = gem_fetcher
+    @logger = logger
   end
 
   def calculate_dependency_freshness(lockfile, direct_dependencies, as_of: nil)
-    freshness = {}
-
-    lockfile.specs.each do |spec|
-      gem_name = spec.name
-      next unless direct_dependencies.include?(gem_name)
+    lockfile.specs.each_with_object({}) do |spec, memo|
+      next unless direct_dependencies.include?(spec.name)
 
       info = build_gem_info(spec, as_of: as_of)
-      freshness[gem_name] = info if info
+      memo[spec.name] = info if info
     end
-
-    freshness
   end
 
   private
@@ -27,83 +24,75 @@ class DependencyAnalyzer
     current_version = spec.version&.to_s
     source_type = source_type_for(spec)
 
-    return unresolved_source_info(gem_name, current_version, source_type) unless source_type == :rubygems
+    unless source_type == :rubygems
+      return unresolved_source_info(
+        gem_name,
+        current_version,
+        source_type,
+        "Skipping comparison for #{gem_name}: unsupported source #{source_type}"
+      )
+    end
 
     remote = remote_uri_for(spec)
-    return unresolved_source_info(gem_name, current_version, source_type, "No remote URI associated with dependency source") unless remote
+    unless remote
+      return metadata_missing_info(
+        gem_name,
+        current_version,
+        :metadata_unavailable,
+        "Skipping comparison for #{gem_name}: no remote URI available"
+      )
+    end
 
     versions = @gem_fetcher.fetch_gem_versions(gem_name, remote: remote)
-    return metadata_missing_info(gem_name, current_version, :metadata_unavailable, "No version metadata returned from #{remote}") unless versions&.any?
+    unless versions&.any?
+      return metadata_missing_info(
+        gem_name,
+        current_version,
+        :metadata_unavailable,
+        "Skipping comparison for #{gem_name}: no version metadata returned from #{remote}"
+      )
+    end
 
-    versions_within_as_of =
-      if as_of
-        versions.select do |version|
-          created_at = version["created_at"]
-          next false unless created_at
-
-          Date.parse(created_at) <= as_of
-        rescue Date::Error
-          false
-        end
-      else
-        versions
-      end
+    versions_within_as_of = filter_versions_by_date(versions, as_of)
 
     if as_of && versions_within_as_of.empty?
       return metadata_missing_info(
         gem_name,
         current_version,
         :latest_version_unavailable_for_date,
-        "No release of #{gem_name} was available on or before #{as_of.iso8601}"
+        "Skipping comparison for #{gem_name}: no release available on or before #{as_of.iso8601}"
       )
     end
 
     latest_version_info = versions_within_as_of.first || versions.first
     latest_version = latest_version_info["number"]
-    latest_release_date_str = latest_version_info["created_at"]
+    latest_release_date = safe_parse_date(latest_version_info["created_at"])
 
-    versions_for_distance = versions_within_as_of
-    version_distance = versions_for_distance.index { |version| version["number"] == current_version }
+    version_distance = versions_within_as_of.index { |version| version["number"] == current_version }
 
-    if version_distance.nil?
+    unless version_distance
       current_version_metadata = versions.find { |version| version["number"] == current_version }
+      return metadata_missing_info(
+        gem_name,
+        current_version,
+        :current_version_missing,
+        "Skipping comparison for #{gem_name}: installed version #{current_version} missing from metadata"
+      ) unless current_version_metadata
 
-      unless current_version_metadata
-        return metadata_missing_info(
-          gem_name,
-          current_version,
-          :current_version_missing,
-          "Installed version #{current_version} not found in metadata from #{remote}"
-        )
-      end
-
-      current_release_date_str = current_version_metadata["created_at"]
-      if current_release_date_str.nil?
-        return metadata_missing_info(
-          gem_name,
-          current_version,
-          :release_date_missing,
-          "Release date data is incomplete for #{gem_name} at #{remote}"
-        )
-      end
-
-      begin
-        current_release_date = Date.parse(current_release_date_str)
-      rescue Date::Error
-        return metadata_missing_info(
-          gem_name,
-          current_version,
-          :invalid_release_date,
-          "Release dates for #{gem_name} could not be parsed"
-        )
-      end
+      current_release_date = safe_parse_date(current_version_metadata["created_at"])
+      return metadata_missing_info(
+        gem_name,
+        current_version,
+        :release_date_missing,
+        "Skipping comparison for #{gem_name}: missing release date for installed version"
+      ) unless current_release_date
 
       if as_of && current_release_date > as_of
         return metadata_missing_info(
           gem_name,
           current_version,
           :current_version_unreleased_for_date,
-          "Installed version #{current_version} released on #{current_release_date.iso8601} is newer than the as-of date #{as_of.iso8601}"
+          "Skipping comparison for #{gem_name}: installed version newer than as-of date"
         )
       end
 
@@ -111,24 +100,22 @@ class DependencyAnalyzer
         gem_name,
         current_version,
         :current_version_missing,
-        "Installed version #{current_version} not found in metadata from #{remote}"
+        "Skipping comparison for #{gem_name}: installed version #{current_version} missing from metadata"
       )
     end
 
-    current_version_info = versions_for_distance[version_distance]
-    current_release_date_str = current_version_info["created_at"]
+    current_version_info = versions_within_as_of[version_distance]
+    current_release_date = safe_parse_date(current_version_info["created_at"])
 
-    if latest_release_date_str.nil? || current_release_date_str.nil?
+    unless latest_release_date && current_release_date
       return metadata_missing_info(
         gem_name,
         current_version,
         :release_date_missing,
-        "Release date data is incomplete for #{gem_name} at #{remote}"
+        "Skipping comparison for #{gem_name}: release date data is incomplete"
       )
     end
 
-    latest_release_date = Date.parse(latest_release_date_str)
-    current_release_date = Date.parse(current_release_date_str)
     libyear_in_days = [(latest_release_date - current_release_date).to_i, 0].max
 
     GemInfo.new(
@@ -140,16 +127,28 @@ class DependencyAnalyzer
       libyear_in_days: libyear_in_days,
       status: :ok
     )
-  rescue Date::Error
+  rescue Date::Error => error
     metadata_missing_info(
       gem_name,
       current_version,
       :invalid_release_date,
-      "Release dates for #{gem_name} could not be parsed"
+      "Skipping comparison for #{gem_name}: #{error.message}"
     )
   end
 
-  def unresolved_source_info(gem_name, current_version, source_type, message = nil)
+  def filter_versions_by_date(versions, as_of)
+    return versions unless as_of
+
+    versions.select do |version|
+      created_at = version["created_at"]
+      next false unless created_at
+
+      date = safe_parse_date(created_at)
+      date && date <= as_of
+    end
+  end
+
+  def unresolved_source_info(gem_name, current_version, source_type, message)
     default_reason = case source_type
                      when :git
                        "Git-sourced gems lack remote metadata for comparison"
@@ -160,6 +159,8 @@ class DependencyAnalyzer
                      else
                        "Dependency source cannot be resolved"
                      end
+    log_message = message || default_reason
+    @logger.warn(log_message)
 
     GemInfo.new(
       name: gem_name,
@@ -168,12 +169,13 @@ class DependencyAnalyzer
       version_distance: nil,
       is_direct: true,
       libyear_in_days: nil,
-      status: :unresolvable_source,
-      status_message: message || default_reason
+      status: :unresolvable_source
     )
   end
 
   def metadata_missing_info(gem_name, current_version, status, message)
+    @logger.warn(message) if message
+
     GemInfo.new(
       name: gem_name,
       current_version: current_version,
@@ -181,8 +183,7 @@ class DependencyAnalyzer
       version_distance: nil,
       is_direct: true,
       libyear_in_days: nil,
-      status: status,
-      status_message: message
+      status: status
     )
   end
 
@@ -207,5 +208,13 @@ class DependencyAnalyzer
 
     remote = source.remotes.find { |uri| uri }
     remote&.to_s
+  end
+
+  def safe_parse_date(value)
+    return nil if value.nil?
+
+    Date.parse(value)
+  rescue Date::Error
+    nil
   end
 end
