@@ -24,11 +24,15 @@ OptionParser.new do |opts|
     puts "Invalid date format. Please use YYYY-MM-DD."
     exit 1
   end
+
+  opts.on("--verbose", "Run with verbose logs") do
+    $verbose = true
+  end
 end.parse!
 
 lockfile_path = ARGV[0] || Bundler.default_lockfile
 lockfile = Bundler::LockfileParser.new(File.read(lockfile_path))
-as_of_date = options[:as_of] || Date.today
+as_of_date = options[:as_of] || nil
 gem_info_fetcher = GemInfoFetcher.new
 dependency_analyzer = DependencyAnalyzer.new(gem_info_fetcher)
 

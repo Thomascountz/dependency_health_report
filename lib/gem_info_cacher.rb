@@ -1,23 +1,25 @@
 # frozen_string_literal: true
 
 require "json"
-require "gems"
-require "uri"
 require "time"
 require "fileutils"
-require "rubygems"
 
 module GemInfoCacher
   CACHE_DIR = ".cache"
   CACHE_EXPIRATION = 86_400 # 24 hours in seconds
 
   def with_cache(remote_host, gem_name, &block)
+    if ENV["SKIP_CACHE"] == "1"
+      rate_limiter(remote_host)
+      return block.call
+    end
+
     cache_file = cache_path(remote_host, gem_name)
     if cache_valid?(cache_file)
       JSON.parse(File.read(cache_file))
     else
       block.call.tap do |data|
-        return nil unless data
+        return [] unless data
 
         FileUtils.mkdir_p(File.dirname(cache_file))
         File.write(cache_file, JSON.dump(data))

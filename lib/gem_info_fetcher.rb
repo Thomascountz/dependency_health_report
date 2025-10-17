@@ -5,6 +5,7 @@ require_relative "gem_info_cacher"
 require "gems"
 require "uri"
 require "time"
+require "date"
 require "rubygems"
 
 class GemInfoFetcher
@@ -26,21 +27,25 @@ class GemInfoFetcher
     @last_request_time = Hash.new { |hash, key| hash[key] = Time.now - RATE_LIMIT_INTERVAL }
   end
 
-  def fetch_gem_versions(gem_name, remote_host:)
+  def fetch_gem_versions(gem_name, remote_host:, as_of: nil)
     client = @gem_source_clients[remote_host]
-    return nil unless client
+    return [] unless client
 
-    if ENV["SKIP_CACHE"] == "1"
+    with_cache(remote_host, gem_name) do
       rate_limiter(remote_host)
       client.versions(gem_name)
-    else
-      with_cache(remote_host, gem_name) do
-        rate_limiter(remote_host)
-        client.versions(gem_name)
-      end
-    end
-  rescue Gems::GemError, Gems::NotFound
-    nil
+    rescue Gems::GemError, Gems::NotFound
+      []
+    end.map do |v|
+      GemVersion.new(
+        name: gem_name,
+        number: Gem::Version.new(v["number"]),
+        created_at: Date.parse(v["created_at"]),
+        prerelease?: v["prerelease"]
+      )
+    end.reject { |v| v.prerelease? || (as_of && v.created_at > as_of) }
+      .sort_by(&:number)
+      .reverse
   end
 
   private
