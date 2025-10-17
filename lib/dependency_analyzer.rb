@@ -15,7 +15,6 @@ class DependencyAnalyzer
     direct_dependencies = lockfile.dependencies.keys
 
     lockfile.specs.each_with_object({}) do |spec, results|
-      next unless direct_dependencies.include?(spec.name)
 
       info = build_gem_info(spec, as_of: as_of)
       results[spec.name] = info if info
