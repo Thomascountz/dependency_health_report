@@ -18,7 +18,6 @@ class DependencyHealthReport
   def run(lockfile_contents, as_of: nil)
     results = []
     lockfile = @lockfile_parser.parse(lockfile_contents)
-    binding.irb
     lockfile.sources.each do |source|
       unless source.type == :gem && !source.remote.nil?
         @logger.warn("Skipping source #{source.type}: unsupported source type or missing remote")

@@ -10,7 +10,8 @@ class PlaintextReporter < Reporter
     {header: "Latest", alignment: :left, value: ->(result) { value_or_unknown(result.latest_version) }},
     {header: "Latest Date", alignment: :left, value: ->(result) { format_date(result.latest_version_release_date) }},
     {header: "Versions", alignment: :right, value: ->(result) { numeric_or_unknown(result.version_distance) }},
-    {header: "Days", alignment: :right, value: ->(result) { numeric_or_unknown(result.libyear_in_days) }}
+    {header: "Days", alignment: :right, value: ->(result) { numeric_or_unknown(result.libyear_in_days) }},
+    {header: "Years", alignment: :right, value: ->(result) { numeric_or_unknown((result.libyear_in_days / 356.0).round(2)) }}
   ].freeze
 
   def initialize(io: $stdout)
