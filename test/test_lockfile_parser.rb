@@ -4,7 +4,7 @@ require_relative "test_helper"
 
 class LockfileParserTest < Minitest::Test
   def test_parses_gem_source_with_remote
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -27,7 +27,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_specs_with_versions
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -57,7 +57,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_specs_with_dependencies
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -88,7 +88,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_platforms
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -112,7 +112,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_dependencies
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -140,7 +140,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_ruby_version
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -166,7 +166,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_bundled_with_version
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -187,7 +187,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_git_source
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GIT
         remote: https://github.com/rails/rails.git
@@ -216,7 +216,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_parses_multiple_gem_sources
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -247,7 +247,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_skips_checksums_section
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
         remote: https://rubygems.org/
@@ -276,7 +276,7 @@ class LockfileParserTest < Minitest::Test
   end
 
   def test_handles_empty_lockfile
-    parser = LockfileParser.new(logger: Logger.new(nil))
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = ""
 
     result = parser.parse(lockfile_content)

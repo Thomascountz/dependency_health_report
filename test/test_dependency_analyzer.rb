@@ -5,7 +5,7 @@ require_relative "test_helper"
 class DependencyAnalyzerTest < Minitest::Test
   def test_calculates_version_distance_for_outdated_gem
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("6.0.0")
     versions_metadata = [
@@ -21,7 +21,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_calculates_libyear_in_days_for_outdated_gem
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("6.0.0")
     current_date = Date.new(2021, 1, 1)
@@ -38,7 +38,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_returns_nil_when_gem_is_up_to_date
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("7.0.0")
     versions_metadata = [
@@ -52,7 +52,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_returns_nil_when_current_version_not_in_metadata
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("5.0.0")
     versions_metadata = [
@@ -67,7 +67,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_handles_prerelease_current_version
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("7.0.0.rc1")
     versions_metadata = [
@@ -84,7 +84,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_skips_prerelease_versions_for_stable_current_version
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("6.0.0")
     versions_metadata = [
@@ -101,7 +101,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_ensures_libyear_is_never_negative
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("6.0.0")
     # Edge case: latest version has earlier date than current
@@ -117,7 +117,7 @@ class DependencyAnalyzerTest < Minitest::Test
 
   def test_populates_result_with_all_required_fields
     # Setup
-    analyzer = DependencyAnalyzer.new(logger: Logger.new(nil))
+    analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
     gem_name = "rails"
     current_version = Gem::Version.new("6.0.0")
     current_date = Date.new(2021, 1, 1)

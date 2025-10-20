@@ -1,0 +1,124 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "csv"
+require "thread"
+require_relative "../lib/storage/database"
+require_relative "../lib/storage/snapshot_processor"
+require_relative "../lib/structured_logger"
+
+REPOLIST_PATH = "repolist.csv"
+
+class MainRunner
+  def initialize(db_path:, thread_count: 4, since: nil)
+    @db_path = db_path
+    @thread_count = thread_count
+    @since = since
+    @database = Database.new(db_path)
+    @work_queue = Queue.new
+    @results_mutex = Mutex.new
+    @processed_count = 0
+    @error_count = 0
+    @logger = StructuredLogger.new
+  end
+
+  def run
+    repos = load_repositories
+    @logger.info("Found #{repos.size} repositories to process")
+    @logger.info("Starting #{@thread_count} worker threads")
+
+    # Add all repos to work queue
+    repos.each { |repo| @work_queue << repo }
+    @thread_count.times { @work_queue << :stop }
+
+    # Start worker threads
+    threads = @thread_count.times.map do |i|
+      Thread.new { worker_thread(i) }
+    end
+
+    # Wait for all threads to complete
+    threads.each(&:join)
+
+    @logger.info("\nCompleted processing:")
+    @logger.info("  Repositories processed: #{@processed_count}")
+    @logger.info("  Errors encountered: #{@error_count}")
+    @logger.info("  Total snapshots: #{@database[:snapshots].count}")
+    @logger.info("  Skipped (already done): #{@database[:processed_repositories].where(status: "completed").count}")
+    @logger.info("  Failed repositories: #{@database[:processed_repositories].where(status: "failed").count}")
+  end
+
+  private
+
+  def load_repositories
+    unless File.exist?(REPOLIST_PATH)
+      @logger.error("repolist.csv not found in current directory")
+      exit 1
+    else
+      CSV.read(csv_path, headers: true).map { |row| row["repository_path"] }.compact
+    end
+  end
+
+  def worker_thread(thread_id)
+    processor = SnapshotProcessor.new(@database, @logger)
+
+    while (repo = @work_queue.pop) != :stop
+      begin
+        processor.process(repo, since: @since, worker_id: thread_id)
+
+        @results_mutex.synchronize do
+          @processed_count += 1
+          @logger.progress("Progress: #{@processed_count}/#{@processed_count + @work_queue.size} repositories processed")
+        end
+      rescue => e
+        @results_mutex.synchronize do
+          @error_count += 1
+          @logger.error("Error processing #{repo}: #{e.message}", {repo: repo, worker_id: thread_id})
+          @logger.error("Backtrace: #{e.backtrace.first(5).join("\n")}", {repo: repo, worker_id: thread_id})
+        end
+      end
+    end
+  end
+end
+
+# Run if this file is executed directly
+if __FILE__ == $0
+  require "optparse"
+  require "date"
+
+  options = {
+    db_path: "out/dependency_health.db",
+    thread_count: 4,
+    since: nil
+  }
+
+  OptionParser.new do |opts|
+    opts.banner = "Usage: main.rb [options]"
+
+    opts.on("--db PATH", "Path to SQLite database (default: out/dependency_health.db)") do |path|
+      options[:db_path] = path
+    end
+
+    opts.on("--threads COUNT", Integer, "Number of worker threads (default: 4)") do |count|
+      options[:thread_count] = count
+    end
+
+    opts.on("--since DATE", "Only analyze commits since this date (YYYY-MM-DD)") do |date|
+      options[:since] = date
+    rescue ArgumentError
+      puts "Invalid date format. Please use YYYY-MM-DD."
+      exit 1
+    end
+
+    opts.on("-h", "--help", "Show this help message") do
+      puts opts
+      exit
+    end
+  end.parse!
+
+  runner = MainRunner.new(
+    db_path: options[:db_path],
+    thread_count: options[:thread_count],
+    since: options[:since]
+  )
+  runner.run
+end

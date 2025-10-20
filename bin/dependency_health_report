@@ -4,7 +4,7 @@ require_relative "../dependency_health_report.rb"
 require "optparse"
 require "date"
 require "bundler"
-require "logger"
+require_relative "../lib/structured_logger"
 
 
 options = {}
@@ -24,7 +24,7 @@ OptionParser.new do |opts|
 end.parse!
 
 # Null logger unless verbose is specified
-logger = options[:verbose] ? Logger.new($stdout) : Logger.new(nil)
+logger = options[:verbose] ? StructuredLogger.new($stdout) : StructuredLogger.new(nil)
 
 lockfile_path = ARGV[0] || Bundler.default_lockfile
 

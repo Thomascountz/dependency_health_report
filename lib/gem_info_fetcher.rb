@@ -7,7 +7,7 @@ require "uri"
 require "time"
 require "date"
 require "rubygems"
-require "logger"
+require_relative "structured_logger"
 
 class GemInfoFetcher
   include GemInfoCacher
@@ -15,7 +15,7 @@ class GemInfoFetcher
   RATE_LIMIT = 10 # https://guides.rubygems.org/rubygems-org-rate-limits/
   RATE_LIMIT_INTERVAL = 1.0 / RATE_LIMIT
 
-  def initialize(logger: Logger.new($stderr))
+  def initialize(logger: StructuredLogger.new($stderr))
     @gem_source_clients = {}
     @last_request_time = Hash.new { |hash, key| hash[key] = Time.now - RATE_LIMIT_INTERVAL }
   end

@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 require "date"
-require "logger"
+require_relative "structured_logger"
 
 require_relative "models"
 
 class DependencyAnalyzer
-  def initialize(logger: Logger.new($stderr))
+  def initialize(logger: StructuredLogger.new($stderr))
     @logger = logger
   end
 

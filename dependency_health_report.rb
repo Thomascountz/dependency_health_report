@@ -7,7 +7,7 @@ require "date"
 require "uri"
 
 class DependencyHealthReport
-  def initialize(lockfile_parser:, gem_info_fetcher:, dependency_analyzer:, reporter:, logger: Logger.new($stderr))
+  def initialize(lockfile_parser:, gem_info_fetcher:, dependency_analyzer:, reporter:, logger: StructuredLogger.new($stderr))
     @lockfile_parser = lockfile_parser
     @gem_info_fetcher = gem_info_fetcher
     @dependency_analyzer = dependency_analyzer
@@ -44,5 +44,6 @@ class DependencyHealthReport
       end
     end
     @reporter.generate(results)
+    results
   end
 end

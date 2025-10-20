@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "models"
+require_relative "structured_logger"
 
 class LockfileParser
   # Section markers
@@ -26,7 +27,7 @@ class LockfileParser
   VERSION_LINE = /^   (.+)$/
   BUNDLED_VERSION = /^   (.+)$/
 
-  def initialize(logger: Logger.new($stderr))
+  def initialize(logger: StructuredLogger.new($stderr))
     @logger = logger
   end
 
