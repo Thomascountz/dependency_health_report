@@ -4,6 +4,8 @@ require_relative "../dependency_health_report.rb"
 require "optparse"
 require "date"
 require "bundler"
+require "logger"
+
 
 options = {}
 OptionParser.new do |opts|
@@ -17,15 +19,28 @@ OptionParser.new do |opts|
   end
 
   opts.on("--verbose", "Run with verbose logs") do
-    $verbose = true
+    options[:verbose] = true
   end
 end.parse!
 
+# Null logger unless verbose is specified
+logger = options[:verbose] ? Logger.new($stdout) : Logger.new(nil)
+
 lockfile_path = ARGV[0] || Bundler.default_lockfile
-lockfile = Bundler::LockfileParser.new(File.read(lockfile_path))
-as_of_date = options[:as_of] || nil
-gem_info_fetcher = GemInfoFetcher.new
-dependency_analyzer = DependencyAnalyzer.new(gem_info_fetcher)
+
+begin
+lockfile_contents = File.read(lockfile_path)
+rescue Errno::ENOENT
+  logger.error("Lockfile not found at path: #{lockfile_path}")
+  exit 1
+end
+
+
+as_of = options[:as_of] || nil
+
+lockfile_parser = LockfileParser.new(logger:)
+gem_info_fetcher = GemInfoFetcher.new(logger:)
+dependency_analyzer = DependencyAnalyzer.new(logger:)
 reporter = PlaintextReporter.new
 
-DependencyHealthReport.new(lockfile, analyzer: dependency_analyzer, reporter: reporter).run(as_of: as_of_date)
+DependencyHealthReport.new(lockfile_parser:, gem_info_fetcher:, dependency_analyzer:, reporter:, logger:).run(lockfile_contents, as_of: as_of)
