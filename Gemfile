@@ -9,11 +9,10 @@ gem "json"
 gem "logger"
 gem "sqlite3"
 gem "stringio"
-
-# Storage project dependencies
-gem "sequel", "~> 5.0"
-gem "octokit", "~> 6.0"
-gem "base64" # Required for Ruby 3.4+
+gem "sequel"
+gem "octokit"
+gem "base64"
+gem "faraday-retry"
 
 group :development, :test do
   gem "rake"

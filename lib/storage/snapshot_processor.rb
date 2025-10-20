@@ -93,104 +93,108 @@ class SnapshotProcessor
   end
 
   def store_snapshot(remote_url, commit, lockfile, results)
-    # Upsert repository
-    repo_id = @db.upsert_repository(remote_url)
+    # Wrap all database operations in a transaction for better performance
+    # and to reduce lock contention in multi-threaded scenarios
+    @db.transaction do
+      # Upsert repository
+      repo_id = @db.upsert_repository(remote_url)
 
-    # Store gem metadata
-    gem_version_ids = {}
+      # Store gem metadata
+      gem_version_ids = {}
 
-    lockfile.sources.each do |source|
-      if source.type == :gem && !source.remote.nil?
-        source_id = @db.upsert_gem_source(source.type.to_s, source.remote)
-      else
-        next
-      end
-
-      source.specs.each do |spec|
-        gem_id = @db.upsert_gem(spec.name, source_id)
-
-        # Find the result for this gem to get release date info
-        result = results.find { |r| r.name == spec.name }
-
-        if result
-          current_release_date = result.current_version_release_date
-          latest_release_date = result.latest_version_release_date
+      lockfile.sources.each do |source|
+        if source.type == :gem && !source.remote.nil?
+          source_id = @db.upsert_gem_source(source.type.to_s, source.remote)
         else
-          current_release_date = nil
-          latest_release_date = nil
+          next
         end
 
-        # Store current version
-        current_version_id = @db.upsert_gem_version(
-          gem_id,
-          spec.version.to_s,
-          current_release_date,
-          false
-        )
+        source.specs.each do |spec|
+          gem_id = @db.upsert_gem(spec.name, source_id)
 
-        gem_version_ids[spec.name] = {current: current_version_id}
+          # Find the result for this gem to get release date info
+          result = results.find { |r| r.name == spec.name }
 
-        # Store latest version if available
-        if result&.latest_version
-          latest_version_id = @db.upsert_gem_version(
+          if result
+            current_release_date = result.current_version_release_date
+            latest_release_date = result.latest_version_release_date
+          else
+            current_release_date = nil
+            latest_release_date = nil
+          end
+
+          # Store current version
+          current_version_id = @db.upsert_gem_version(
             gem_id,
-            result.latest_version.to_s,
-            latest_release_date,
+            spec.version.to_s,
+            current_release_date,
             false
           )
-          gem_version_ids[spec.name][:latest] = latest_version_id
-        else
-          gem_version_ids[spec.name][:latest] = nil
+
+          gem_version_ids[spec.name] = {current: current_version_id}
+
+          # Store latest version if available
+          if result&.latest_version
+            latest_version_id = @db.upsert_gem_version(
+              gem_id,
+              result.latest_version.to_s,
+              latest_release_date,
+              false
+            )
+            gem_version_ids[spec.name][:latest] = latest_version_id
+          else
+            gem_version_ids[spec.name][:latest] = nil
+          end
         end
       end
-    end
 
-    # Calculate summary metrics
-    total_gems = lockfile.sources.flat_map(&:specs).size
-    outdated_gems = results.count { |r| r.version_distance && r.version_distance > 0 }
+      # Calculate summary metrics
+      total_gems = lockfile.sources.flat_map(&:specs).size
+      outdated_gems = results.count { |r| r.version_distance && r.version_distance > 0 }
 
-    if results.any? && results.map(&:libyear_in_days).compact.any?
-      total_libyear = results.map { |r| r.libyear_in_days || 0 }.sum
-      avg_libyear = total_libyear.to_f / results.size
-    else
-      total_libyear = nil
-      avg_libyear = nil
-    end
-
-    avg_version_distance = if results.any? && results.map(&:version_distance).compact.any?
-      results.map { |r| r.version_distance || 0 }.sum.to_f / results.size
-    end
-
-    # Insert snapshot
-    snapshot_id = @db.insert_snapshot({
-      repository_id: repo_id,
-      commit_sha: commit[:sha],
-      commit_date: commit[:date],
-      analyzed_at: Time.now,
-      as_of_date: commit[:date],
-      total_gems: total_gems,
-      outdated_gems: outdated_gems,
-      avg_libyear: avg_libyear,
-      total_libyear: total_libyear,
-      avg_version_distance: avg_version_distance
-    })
-
-    # Insert lockfile entries
-    results.each do |result|
-      gem_ids = gem_version_ids[result.name]
-      if gem_ids
-        @db.insert_lockfile_entry({
-          snapshot_id: snapshot_id,
-          gem_version_id: gem_ids[:current],
-          latest_gem_version_id: gem_ids[:latest],
-          version_distance: result.version_distance,
-          libyear_in_days: result.libyear_in_days,
-          is_direct: result.is_direct ? 1 : 0
-        })
+      if results.any? && results.map(&:libyear_in_days).compact.any?
+        total_libyear = results.map { |r| r.libyear_in_days || 0 }.sum
+        avg_libyear = total_libyear.to_f / results.size
       else
-        # Shouldn't happen, but skip if we don't have the gem version ID
-        next
+        total_libyear = nil
+        avg_libyear = nil
       end
-    end
+
+      avg_version_distance = if results.any? && results.map(&:version_distance).compact.any?
+        results.map { |r| r.version_distance || 0 }.sum.to_f / results.size
+      end
+
+      # Insert snapshot
+      snapshot_id = @db.insert_snapshot({
+        repository_id: repo_id,
+        commit_sha: commit[:sha],
+        commit_date: commit[:date],
+        analyzed_at: Time.now,
+        as_of_date: commit[:date],
+        total_gems: total_gems,
+        outdated_gems: outdated_gems,
+        avg_libyear: avg_libyear,
+        total_libyear: total_libyear,
+        avg_version_distance: avg_version_distance
+      })
+
+      # Insert lockfile entries
+      results.each do |result|
+        gem_ids = gem_version_ids[result.name]
+        if gem_ids
+          @db.insert_lockfile_entry({
+            snapshot_id: snapshot_id,
+            gem_version_id: gem_ids[:current],
+            latest_gem_version_id: gem_ids[:latest],
+            version_distance: result.version_distance,
+            libyear_in_days: result.libyear_in_days,
+            is_direct: result.is_direct ? 1 : 0
+          })
+        else
+          # Shouldn't happen, but skip if we don't have the gem version ID
+          next
+        end
+      end
+    end # transaction
   end
 end

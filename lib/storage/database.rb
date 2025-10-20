@@ -7,6 +7,7 @@ DEFAULT_DB_PATH = "out/dependency_health.db"
 class Database
   def initialize(db_path = DEFAULT_DB_PATH)
     @db = Sequel.sqlite(db_path)
+    configure_sqlite
     create_tables
   end
 
@@ -100,7 +101,20 @@ class Database
     @db[table]
   end
 
+  def transaction(&block)
+    @db.transaction(&block)
+  end
+
   private
+
+  def configure_sqlite
+    # Enable Write-Ahead Logging for better concurrency
+    # WAL mode allows multiple readers and one writer to operate concurrently
+    @db.run("PRAGMA journal_mode=WAL")
+
+    # Set busy timeout to 5 seconds (5000ms) to wait for locks instead of failing immediately
+    @db.run("PRAGMA busy_timeout=5000")
+  end
 
   def create_tables
     @db.create_table?(:gem_sources) do

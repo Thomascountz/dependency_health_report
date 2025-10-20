@@ -1,4 +1,6 @@
 *.cache
 *.log
+*.db*
+*.sqlite3*
 *out
 repolist.csv

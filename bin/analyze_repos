@@ -54,7 +54,7 @@ class MainRunner
       @logger.error("repolist.csv not found in current directory")
       exit 1
     else
-      CSV.read(csv_path, headers: true).map { |row| row["repository_path"] }.compact
+      CSV.read(REPOLIST_PATH, headers: true).map { |row| row["repository_path"] }.compact
     end
   end
 
