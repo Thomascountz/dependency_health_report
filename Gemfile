@@ -8,5 +8,10 @@ gem "gems"
 gem "json"
 gem "logger"
 gem "sqlite3"
-gem "standard"
 gem "stringio"
+
+group :development, :test do
+  gem "rake"
+  gem "minitest"
+  gem "standard"
+end
