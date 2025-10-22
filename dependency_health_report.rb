@@ -27,6 +27,11 @@ class DependencyHealthReport
       remote_host = URI.parse(source.remote).host
 
       source.specs.each do |spec|
+        if spec.platform != "ruby"
+          @logger.info("Skipping #{spec.name} (#{spec.version}): non-ruby platform #{spec.platform}")
+          next
+        end
+
         gem_name = spec.name
         gem_version = spec.version
         versions_metadata = @gem_info_fetcher.gem_versions_for(gem_name, remote_host)

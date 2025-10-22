@@ -27,6 +27,9 @@ class LockfileParser
   VERSION_LINE = /^   (.+)$/
   BUNDLED_VERSION = /^   (.+)$/
 
+  # Pattern to match platform suffixes in version strings
+  PLATFORM_PATTERN = /-([a-z0-9_-]+)$/
+
   def initialize(logger: StructuredLogger.new($stderr))
     @logger = logger
   end
@@ -128,7 +131,10 @@ class LockfileParser
       line = lines[i]
       match = line.match(SPEC_ENTRY)
       name = match[1]
-      version = match[2]
+      version_string = match[2]
+
+      # Parse version components to extract platform
+      version_components = parse_version_components(version_string)
 
       dependencies = []
       i += 1
@@ -144,7 +150,9 @@ class LockfileParser
 
       specs << Spec.new(
         name: name,
-        version: version,
+        version: version_components ? version_components[:version] : version_string,
+        platform: version_components ? version_components[:platform] : 'ruby',
+        raw: version_components ? version_components[:raw] : version_string,
         dependencies: dependencies
       )
     end
@@ -224,6 +232,24 @@ class LockfileParser
       line.match?(DEPENDENCIES) || line.match?(RUBY) ||
       line.match?(BUNDLED_WITH) || line.match?(CHECKSUMS)
   end
+
+  def parse_version_components(version_string)
+    return nil unless version_string
+
+    if match = version_string.match(PLATFORM_PATTERN)
+      {
+        raw: version_string,
+        version: version_string.sub(PLATFORM_PATTERN, ''),
+        platform: match[1]
+      }
+    else
+      {
+        raw: version_string,
+        version: version_string,
+        platform: 'ruby'
+      }
+    end
+  end
 end
 
 if __FILE__ == $0
@@ -234,7 +260,7 @@ if __FILE__ == $0
 
   lockfile_content = File.read(ARGV[0])
 
-  result = LockfileParser.new(lockfile_content).parse
+  result = LockfileParser.new.parse(lockfile_content)
 
   puts "Sources: #{result.sources.map(&:remote).inspect}"
   puts "Platforms: #{result.platforms.map(&:name).inspect}"

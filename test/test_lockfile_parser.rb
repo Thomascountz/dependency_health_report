@@ -52,8 +52,12 @@ class LockfileParserTest < Minitest::Test
     assert_equal 2, specs.length
     assert_equal "rails", specs[0].name
     assert_equal "7.0.0", specs[0].version
+    assert_equal "ruby", specs[0].platform
+    assert_equal "7.0.0", specs[0].raw
     assert_equal "rake", specs[1].name
     assert_equal "13.0.0", specs[1].version
+    assert_equal "ruby", specs[1].platform
+    assert_equal "13.0.0", specs[1].raw
   end
 
   def test_parses_specs_with_dependencies
@@ -273,6 +277,65 @@ class LockfileParserTest < Minitest::Test
     # Should parse successfully without errors
     assert_equal 1, result.sources.length
     assert_equal 1, result.sources.first.specs.length
+  end
+
+  def test_parses_platform_specific_gems
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
+    lockfile_content = <<~LOCKFILE
+      GEM
+        remote: https://rubygems.org/
+        specs:
+          nokogiri (1.17.2-x86_64-linux)
+          nokogiri (1.17.2-arm64-darwin)
+          sqlite3 (2.7.4-aarch64-linux-gnu)
+          faraday (2.14.0)
+
+      PLATFORMS
+        arm64-darwin
+        x86_64-linux
+        aarch64-linux-gnu
+
+      DEPENDENCIES
+        nokogiri
+        sqlite3
+        faraday
+
+      BUNDLED WITH
+         2.6.2
+    LOCKFILE
+
+    result = parser.parse(lockfile_content)
+
+    specs = result.sources.first.specs
+    assert_equal 4, specs.length
+
+    # Check nokogiri x86_64-linux
+    nokogiri_linux = specs[0]
+    assert_equal "nokogiri", nokogiri_linux.name
+    assert_equal "1.17.2", nokogiri_linux.version
+    assert_equal "x86_64-linux", nokogiri_linux.platform
+    assert_equal "1.17.2-x86_64-linux", nokogiri_linux.raw
+
+    # Check nokogiri arm64-darwin
+    nokogiri_darwin = specs[1]
+    assert_equal "nokogiri", nokogiri_darwin.name
+    assert_equal "1.17.2", nokogiri_darwin.version
+    assert_equal "arm64-darwin", nokogiri_darwin.platform
+    assert_equal "1.17.2-arm64-darwin", nokogiri_darwin.raw
+
+    # Check sqlite3
+    sqlite = specs[2]
+    assert_equal "sqlite3", sqlite.name
+    assert_equal "2.7.4", sqlite.version
+    assert_equal "aarch64-linux-gnu", sqlite.platform
+    assert_equal "2.7.4-aarch64-linux-gnu", sqlite.raw
+
+    # Check faraday (no platform)
+    faraday = specs[3]
+    assert_equal "faraday", faraday.name
+    assert_equal "2.14.0", faraday.version
+    assert_equal "ruby", faraday.platform
+    assert_equal "2.14.0", faraday.raw
   end
 
   def test_handles_empty_lockfile

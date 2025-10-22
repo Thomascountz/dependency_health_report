@@ -42,6 +42,7 @@ class GemInfoFetcher
 
   def build_versions(gem_name, raw_versions)
     Array(raw_versions)
+      .select { |attributes| attributes["platform"] == "ruby" }
       .map do |attributes|
         GemVersion.new(
           name: gem_name,

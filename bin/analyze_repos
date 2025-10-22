@@ -5,6 +5,7 @@ require "csv"
 require "thread"
 require_relative "../lib/storage/database"
 require_relative "../lib/storage/snapshot_processor"
+require_relative "../lib/storage/version_backfiller"
 require_relative "../lib/structured_logger"
 
 REPOLIST_PATH = "repolist.csv"
@@ -88,7 +89,9 @@ if __FILE__ == $0
   options = {
     db_path: "out/dependency_health.db",
     thread_count: 4,
-    since: nil
+    since: nil,
+    backfill_versions: false,
+    dry_run: false
   }
 
   OptionParser.new do |opts|
@@ -109,6 +112,14 @@ if __FILE__ == $0
       exit 1
     end
 
+    opts.on("--backfill-versions", "Backfill missing gem versions after analysis") do
+      options[:backfill_versions] = true
+    end
+
+    opts.on("--dry-run", "Show what would be done without making changes (for backfill)") do
+      options[:dry_run] = true
+    end
+
     opts.on("-h", "--help", "Show this help message") do
       puts opts
       exit
@@ -121,4 +132,12 @@ if __FILE__ == $0
     since: options[:since]
   )
   runner.run
+
+  # Run version backfill if requested
+  if options[:backfill_versions]
+    puts "\nStarting version backfill..."
+    database = Database.new(options[:db_path])
+    backfiller = VersionBackfiller.new(database)
+    backfiller.backfill_versions(dry_run: options[:dry_run])
+  end
 end
