@@ -6,7 +6,8 @@ require "fileutils"
 
 module GemInfoCacher
   CACHE_DIR = ".cache"
-  CACHE_EXPIRATION = 86_400 # 24 hours in seconds
+  # CACHE_EXPIRATION = 86_400 # 24 hours in seconds
+  CACHE_EXPIRATION = 86_400 * 2
 
   def with_cache(remote_host, gem_name, &block)
     if ENV["SKIP_CACHE"] == "1"

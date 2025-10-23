@@ -5,7 +5,12 @@ Dependency = Data.define(:name, :version_requirements)
 Platform = Data.define(:name)
 RubyVersion = Data.define(:version, :engine, :patchlevel)
 
-GemVersion = Data.define(:name, :number, :created_at, :prerelease?)
+GemVersion = Data.define(:name, :number, :created_at, :prerelease?, :major, :minor, :patch, :prerelease_type, :prerelease_number, :build_metadata) do
+  def version_string
+    number.to_s
+  end
+end
+
 Result = Data.define(
   :name,
   :current_version,

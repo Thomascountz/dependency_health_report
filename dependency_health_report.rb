@@ -36,7 +36,7 @@ class DependencyHealthReport
         gem_version = spec.version
         versions_metadata = @gem_info_fetcher.gem_versions_for(gem_name, remote_host)
           .reject { |version| as_of && version.created_at > as_of }
-          .sort_by(&:number)
+          .sort_by(&:number) # TODO: Here we are using a Gem::Version sort
           .reverse
 
         if versions_metadata.empty?

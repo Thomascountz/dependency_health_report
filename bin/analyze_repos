@@ -60,7 +60,8 @@ class MainRunner
   end
 
   def worker_thread(thread_id)
-    processor = SnapshotProcessor.new(@database, @logger)
+    database = Database.new(@db_path)
+    processor = SnapshotProcessor.new(database, @logger)
 
     while (repo = @work_queue.pop) != :stop
       begin
@@ -74,7 +75,7 @@ class MainRunner
         @results_mutex.synchronize do
           @error_count += 1
           @logger.error("Error processing #{repo}: #{e.message}", {repo: repo, worker_id: thread_id})
-          @logger.error("Backtrace: #{e.backtrace.first(5).join("\n")}", {repo: repo, worker_id: thread_id})
+          @logger.error("Backtrace: #{e.backtrace.first(20).join("\n")}", {repo: repo, worker_id: thread_id})
         end
       end
     end

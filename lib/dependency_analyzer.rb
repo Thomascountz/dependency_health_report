@@ -27,10 +27,6 @@ class DependencyAnalyzer
     latest_version = latest_version_info.number
     current_version = current_version_info.number
 
-    if latest_version == current_version
-      return nil
-    end
-
     latest_release_date = latest_version_info.created_at
     current_release_date = current_version_info.created_at
 

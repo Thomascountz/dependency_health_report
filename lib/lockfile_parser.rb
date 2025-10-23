@@ -151,7 +151,7 @@ class LockfileParser
       specs << Spec.new(
         name: name,
         version: version_components ? version_components[:version] : version_string,
-        platform: version_components ? version_components[:platform] : 'ruby',
+        platform: version_components ? version_components[:platform] : "ruby",
         raw: version_components ? version_components[:raw] : version_string,
         dependencies: dependencies
       )
@@ -236,17 +236,17 @@ class LockfileParser
   def parse_version_components(version_string)
     return nil unless version_string
 
-    if match = version_string.match(PLATFORM_PATTERN)
+    if (match = version_string.match(PLATFORM_PATTERN))
       {
         raw: version_string,
-        version: version_string.sub(PLATFORM_PATTERN, ''),
+        version: version_string.sub(PLATFORM_PATTERN, ""),
         platform: match[1]
       }
     else
       {
         raw: version_string,
         version: version_string,
-        platform: 'ruby'
+        platform: "ruby"
       }
     end
   end

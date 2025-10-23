@@ -44,13 +44,20 @@ class GemInfoFetcher
     Array(raw_versions)
       .select { |attributes| attributes["platform"] == "ruby" }
       .map do |attributes|
-        GemVersion.new(
-          name: gem_name,
-          number: Gem::Version.new(attributes["number"]),
-          created_at: Date.parse(attributes["created_at"]),
-          prerelease?: attributes["prerelease"]
-        )
-      end
+      parsed = SemverParser.parse(attributes["number"])
+      GemVersion.new(
+        name: gem_name,
+        number: Gem::Version.new(attributes["number"].split("+").first), # Gem::Version doesn't handle build metadata (+), so we need to strip it
+        created_at: Date.parse(attributes["created_at"]),
+        prerelease?: attributes["prerelease"],
+        major: parsed[:major],
+        minor: parsed[:minor],
+        patch: parsed[:patch],
+        prerelease_type: parsed[:prerelease_type],
+        prerelease_number: parsed[:prerelease_number],
+        build_metadata: parsed[:build_metadata]
+      )
+    end
   end
 
   def client_for(remote_host)

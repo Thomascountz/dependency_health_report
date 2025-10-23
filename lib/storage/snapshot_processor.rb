@@ -5,9 +5,28 @@ require_relative "dependency_reporter"
 require_relative "../../dependency_health_report"
 
 class SnapshotProcessor
-  def initialize(database, logger)
+  def initialize(
+    database,
+    logger,
+    lockfile_parser: nil,
+    gem_info_fetcher: nil,
+    dependency_analyzer: nil,
+    reporter: nil,
+    report_logger: StructuredLogger.new(nil)
+  )
     @db = database
     @logger = logger
+    @lockfile_parser = lockfile_parser || LockfileParser.new(logger: StructuredLogger.new(nil))
+    @gem_info_fetcher = gem_info_fetcher || GemInfoFetcher.new(logger: StructuredLogger.new(nil))
+    @dependency_analyzer = dependency_analyzer || DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
+    @reporter = reporter || DependencyReporter.new
+    @health_report = DependencyHealthReport.new(
+      lockfile_parser: @lockfile_parser,
+      gem_info_fetcher: @gem_info_fetcher,
+      dependency_analyzer: @dependency_analyzer,
+      reporter: @reporter,
+      logger: report_logger
+    )
   end
 
   def process(repo_path, since: nil, worker_id: nil)
@@ -15,12 +34,12 @@ class SnapshotProcessor
     extractor = LockfileExtractor.new(repo_path: repo_path, logger: @logger)
     remote_url = extractor.remote_url
 
-    if @db.repository_processed?(remote_url)
-      @logger.info("Skipping (already processed)", {repo: remote_url, worker_id: worker_id})
-      return
-    else
-      @logger.info("Processing repository", {repo: remote_url, worker_id: worker_id})
-    end
+    # if @db.repository_processed?(remote_url)
+    #   @logger.info("Skipping (already processed)", {repo: remote_url, worker_id: worker_id})
+    #   return
+    # else
+    #   @logger.info("Processing repository", {repo: remote_url, worker_id: worker_id})
+    # end
 
     begin
       commits = extractor.commits(since: since)
@@ -35,6 +54,11 @@ class SnapshotProcessor
       snapshots_created = 0
 
       commits.each do |commit|
+        # if @db.commit_processed?(remote_url, commit[:sha])
+        #   @logger.info("Skipping commit #{commit[:sha]} (already processed)", {repo: remote_url, worker_id: worker_id})
+        #   next
+        # end
+
         lockfile_contents = extractor.lockfile_at_commit(commit[:sha])
 
         if lockfile_contents.nil?
@@ -62,23 +86,8 @@ class SnapshotProcessor
   private
 
   def process_commit(remote_url, commit, lockfile_contents, worker_id)
-    # Create components for analysis
-    lockfile_parser = LockfileParser.new(logger: StructuredLogger.new(nil))
-    gem_info_fetcher = GemInfoFetcher.new(logger: StructuredLogger.new(nil))
-    dependency_analyzer = DependencyAnalyzer.new(logger: StructuredLogger.new(nil))
-    reporter = DependencyReporter.new
-
-    # Run analysis
-    health_report = DependencyHealthReport.new(
-      lockfile_parser: lockfile_parser,
-      gem_info_fetcher: gem_info_fetcher,
-      dependency_analyzer: dependency_analyzer,
-      reporter: reporter,
-      logger: StructuredLogger.new(nil)
-    )
-
-    results = health_report.run(lockfile_contents, as_of: commit[:date])
-    lockfile = lockfile_parser.parse(lockfile_contents)
+    results = @health_report.run(lockfile_contents, as_of: commit[:date])
+    lockfile = @lockfile_parser.parse(lockfile_contents)
 
     # Store results in database
     store_snapshot(remote_url, commit, lockfile, results)
@@ -110,6 +119,9 @@ class SnapshotProcessor
         end
 
         source.specs.each do |spec|
+          # Skip non-ruby platforms
+          next if spec.platform != "ruby"
+
           gem_id = @db.upsert_gem(spec.name, source_id)
 
           # Find the result for this gem to get release date info

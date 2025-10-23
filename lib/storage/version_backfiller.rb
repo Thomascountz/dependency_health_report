@@ -60,18 +60,22 @@ class VersionBackfiller
 
   private
 
+  # Rubocop things .select().first can be .find, but this is Sequel syntax
+  # rubocop:disable Performance/Detect
   def get_analysis_date_range
     result = @db[:snapshots]
-      .select{[
+      .select {
+      [
         Sequel.function(:min, :commit_date).as(:min_date),
         Sequel.function(:max, :commit_date).as(:max_date)
-      ]}
-      .first
+      ]
+    }.first
 
     return nil if result.nil? || result[:min_date].nil?
 
     [Date.parse(result[:min_date].to_s), Date.parse(result[:max_date].to_s)]
   end
+  # rubocop:enable Performance/Detect
 
   def get_analyzed_gems
     # Get all unique gems with their source information
@@ -143,11 +147,18 @@ class VersionBackfiller
           else
             @db[:gem_versions].insert(
               gem_id: gem_id,
-              version_number: version.number.to_s,
+              version_number: version.version_string,
               release_date: version.created_at,
               prerelease: version.prerelease? ? 1 : 0,
               first_seen_at: Time.now,
-              last_seen_at: Time.now
+              last_seen_at: Time.now,
+              # Semver components from GemVersion object
+              major: version.major,
+              minor: version.minor,
+              patch: version.patch,
+              prerelease_type: version.prerelease_type,
+              prerelease_number: version.prerelease_number,
+              build_metadata: version.build_metadata
             )
           end
           versions_added += 1
