@@ -2,6 +2,10 @@
 
 require_relative "test_helper"
 
+require "base64"
+require "fileutils"
+require "json"
+
 class LockfileParserTest < Minitest::Test
   def test_parses_gem_source_with_remote
     parser = LockfileParser.new(logger: StructuredLogger.new(nil))
@@ -259,8 +263,8 @@ class LockfileParserTest < Minitest::Test
           rails (7.0.0)
 
       CHECKSUMS
-        rails (7.0.0) sha256=abc123
-        rake (13.0.0) sha256=def456
+        rails (7.0.0) sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        rake (13.0.0) sha256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
       PLATFORMS
         ruby
@@ -349,5 +353,62 @@ class LockfileParserTest < Minitest::Test
     assert_equal 0, result.dependencies.length
     assert_nil result.ruby_version
     assert_nil result.bundled_with
+  end
+
+  def test_caches_base64_lockfile_when_metadata_provided
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
+    lockfile_content = <<~LOCKFILE
+      GEM
+        remote: https://rubygems.org/
+        specs:
+          rails (7.1.0)
+
+      PLATFORMS
+        ruby
+
+      DEPENDENCIES
+        rails
+    LOCKFILE
+
+    metadata = {remote_url: "https://lockfile-parser.test/testing/cache", commit_sha: "cache-test-sha"}
+
+    parser.parse(lockfile_content, cache_metadata: metadata)
+
+    cache_file = File.join(".cache", "lockfiles", "https", "lockfile-parser.test", "testing", "cache", "cache-test-sha.json")
+
+    assert File.exist?(cache_file), "Expected cache file to exist"
+
+    payload = JSON.parse(File.read(cache_file))
+    assert_equal Base64.strict_encode64(lockfile_content), payload.fetch("base64")
+  ensure
+    FileUtils.rm_f(cache_file) if defined?(cache_file)
+    FileUtils.rm_rf(File.join(".cache", "lockfiles", "https", "lockfile-parser.test", "testing", "cache"))
+  end
+
+  def test_reads_lockfile_from_cache_when_content_missing
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
+    lockfile_content = <<~LOCKFILE
+      GEM
+        remote: https://rubygems.org/
+        specs:
+          rails (7.1.0)
+
+      PLATFORMS
+        ruby
+
+      DEPENDENCIES
+        rails
+    LOCKFILE
+
+    metadata = {remote_url: "https://lockfile-parser.test/testing/cache2", commit_sha: "cache-test-sha-2"}
+
+    parser.parse(lockfile_content, cache_metadata: metadata)
+    result = parser.parse(nil, cache_metadata: metadata)
+
+    assert_equal 1, result.sources.length
+    assert_equal "rails", result.sources.first.specs.first.name
+  ensure
+    cache_dir = File.join(".cache", "lockfiles", "https", "lockfile-parser.test", "testing", "cache2")
+    FileUtils.rm_rf(cache_dir)
   end
 end

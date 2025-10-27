@@ -15,9 +15,9 @@ class DependencyHealthReport
     @logger = logger
   end
 
-  def run(lockfile_contents, as_of: nil)
+  def run(lockfile_contents, as_of: nil, cache_metadata: nil)
     results = []
-    lockfile = @lockfile_parser.parse(lockfile_contents)
+    lockfile = @lockfile_parser.parse(lockfile_contents, cache_metadata: cache_metadata)
     lockfile.sources.each do |source|
       unless source.type == :gem && !source.remote.nil?
         @logger.warn("Skipping source #{source.type}: unsupported source type or missing remote")

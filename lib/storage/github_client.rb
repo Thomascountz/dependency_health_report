@@ -13,13 +13,18 @@ class GitHubClient
     @api_calls_made = 0
   end
 
-  def fetch_gemfile_lock_commits(repo_url)
+  def fetch_gemfile_lock_commits(repo_url, since: nil)
     owner, repo = extract_owner_repo(repo_url)
     return [] unless owner && repo
 
     check_rate_limit_and_sleep
 
-    commits = @client.commits("#{owner}/#{repo}", path: "Gemfile.lock")
+    commits = if since
+      @client.commits_since("#{owner}/#{repo}", since, path: "Gemfile.lock")
+    else
+      @client.commits("#{owner}/#{repo}", path: "Gemfile.lock")
+    end
+
     @api_calls_made += 1
 
     commits.map do |commit|
@@ -30,7 +35,9 @@ class GitHubClient
         owner: owner,
         repo: repo
       }
-    end
+    end.group_by { |c| c[:date].strftime("%Y-%m") }
+      .map { |_, grouped_commits| grouped_commits.max_by { |c| c[:date] } }
+      .sort_by { |c| c[:date] }
   rescue Octokit::NotFound, Octokit::Forbidden => e
     @logger&.warn("Skipping repository: #{e.message}", {repo: repo_url})
     []

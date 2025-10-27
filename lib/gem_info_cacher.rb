@@ -32,9 +32,10 @@ module GemInfoCacher
 
   def cache_valid?(cache_file)
     return false unless File.exist?(cache_file)
+    true
 
-    cache_age = Time.now - File.mtime(cache_file)
-    cache_age < CACHE_EXPIRATION
+    # cache_age = Time.now - File.mtime(cache_file)
+    # cache_age < CACHE_EXPIRATION
   end
 
   def cache_path(remote_host, gem_name)

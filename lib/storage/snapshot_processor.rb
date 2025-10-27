@@ -38,7 +38,7 @@ class SnapshotProcessor
     #   @logger.info("Skipping (already processed)", {repo: remote_url, worker_id: worker_id})
     #   return
     # else
-    #   @logger.info("Processing repository", {repo: remote_url, worker_id: worker_id})
+      @logger.info("Processing repository", {repo: remote_url, worker_id: worker_id})
     # end
 
     begin
@@ -54,10 +54,10 @@ class SnapshotProcessor
       snapshots_created = 0
 
       commits.each do |commit|
-        # if @db.commit_processed?(remote_url, commit[:sha])
-        #   @logger.info("Skipping commit #{commit[:sha]} (already processed)", {repo: remote_url, worker_id: worker_id})
-        #   next
-        # end
+        if @db.commit_processed?(remote_url, commit[:sha])
+          @logger.info("Skipping commit #{commit[:sha]} (already processed)", {repo: remote_url, worker_id: worker_id})
+          next
+        end
 
         lockfile_contents = extractor.lockfile_at_commit(commit[:sha])
 
@@ -86,8 +86,14 @@ class SnapshotProcessor
   private
 
   def process_commit(remote_url, commit, lockfile_contents, worker_id)
-    results = @health_report.run(lockfile_contents, as_of: commit[:date])
-    lockfile = @lockfile_parser.parse(lockfile_contents)
+    cache_metadata = {
+      remote_url: remote_url,
+      commit_sha: commit[:sha]
+    }
+
+    results = @health_report.run(lockfile_contents, as_of: commit[:date], cache_metadata: cache_metadata)
+
+    lockfile = read_lockfile_from_cache(lockfile_contents, cache_metadata)
 
     # Store results in database
     store_snapshot(remote_url, commit, lockfile, results)
@@ -115,6 +121,7 @@ class SnapshotProcessor
         if source.type == :gem && !source.remote.nil?
           source_id = @db.upsert_gem_source(source.type.to_s, source.remote)
         else
+          @logger.warn("Skipping unsupported source type '#{source.type}' for source", {repo: remote_url})
           next
         end
 
@@ -208,5 +215,11 @@ class SnapshotProcessor
         end
       end
     end # transaction
+  end
+
+  def read_lockfile_from_cache(lockfile_contents, cache_metadata)
+    @lockfile_parser.parse(nil, cache_metadata: cache_metadata)
+  rescue LockfileParser::CacheMissError
+    @lockfile_parser.parse(lockfile_contents, cache_metadata: cache_metadata)
   end
 end

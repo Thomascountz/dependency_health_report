@@ -1,9 +1,15 @@
 # frozen_string_literal: true
 
+require "base64"
+require "json"
+require "fileutils"
+
 require_relative "models"
 require_relative "structured_logger"
 
 class LockfileParser
+  class CacheMissError < StandardError; end
+
   # Section markers
   BUNDLED_WITH = /^BUNDLED WITH$/
   CHECKSUMS = /^CHECKSUMS$/
@@ -30,12 +36,19 @@ class LockfileParser
   # Pattern to match platform suffixes in version strings
   PLATFORM_PATTERN = /-([a-z0-9_-]+)$/
 
+  LOCKFILE_CACHE_DIR = File.join(".cache", "lockfiles")
+
   def initialize(logger: StructuredLogger.new($stderr))
     @logger = logger
   end
 
-  def parse(lockfile_content)
-    # content = File.read(lockfile_path)
+  def parse(lockfile_content, cache_metadata: nil)
+    lockfile_content = prepare_lockfile_content(lockfile_content, cache_metadata)
+
+    if lockfile_content.nil?
+      raise CacheMissError, "Lockfile content was nil and no cache available"
+    end
+
     lines = lockfile_content.lines.map(&:chomp)
 
     sources = []
@@ -78,6 +91,78 @@ class LockfileParser
   end
 
   private
+
+  def prepare_lockfile_content(lockfile_content, cache_metadata)
+    return lockfile_content if cache_metadata.nil?
+    return lockfile_content if cache_disabled? && !lockfile_content.nil?
+
+    if lockfile_content.nil?
+      return read_lockfile_cache(cache_metadata)
+    end
+
+    write_lockfile_cache(lockfile_content, cache_metadata)
+    lockfile_content
+  end
+
+  def cache_disabled?
+    ENV["SKIP_CACHE"] == "1"
+  end
+
+  def write_lockfile_cache(lockfile_content, cache_metadata)
+    cache_file = cache_path(cache_metadata)
+
+    FileUtils.mkdir_p(File.dirname(cache_file))
+
+    payload = {
+      "base64" => Base64.strict_encode64(lockfile_content),
+      "commit_sha" => cache_metadata[:commit_sha],
+      "remote_url" => cache_metadata[:remote_url]
+    }
+
+    File.write(cache_file, JSON.dump(payload))
+  rescue SystemCallError => e
+    @logger&.warn("Failed to write lockfile cache: #{e.message}")
+    lockfile_content
+  end
+
+  def read_lockfile_cache(cache_metadata)
+    raise CacheMissError, "Lockfile cache disabled" if cache_disabled?
+
+    cache_file = cache_path(cache_metadata)
+
+    unless File.exist?(cache_file)
+      raise CacheMissError, "Lockfile cache not found at #{cache_file}"
+    end
+
+    payload = JSON.parse(File.read(cache_file))
+    Base64.decode64(payload.fetch("base64"))
+  rescue JSON::ParserError => e
+    raise CacheMissError, "Lockfile cache corrupt at #{cache_file}: #{e.message}"
+  end
+
+  def cache_path(cache_metadata)
+    if cache_metadata[:cache_key]
+      sanitized_key = sanitize_segment(cache_metadata[:cache_key])
+      return File.join(LOCKFILE_CACHE_DIR, "by_key", "#{sanitized_key}.json")
+    end
+
+    remote_segments = cache_remote_segments(cache_metadata[:remote_url])
+    commit_segment = sanitize_segment(cache_metadata[:commit_sha] || "current")
+
+    File.join(LOCKFILE_CACHE_DIR, *remote_segments, "#{commit_segment}.json")
+  end
+
+  def cache_remote_segments(remote_url)
+    return ["unknown"] if remote_url.nil? || remote_url.strip.empty?
+
+    sanitized = remote_url.strip.sub(/\.git\z/, "")
+    segments = sanitized.split(/[\/\:]/).reject(&:empty?).map { |segment| sanitize_segment(segment) }
+    segments.empty? ? ["unknown"] : segments
+  end
+
+  def sanitize_segment(segment)
+    segment.to_s.gsub(/[^a-zA-Z0-9._-]/, "_")
+  end
 
   def parse_source(lines, start_idx)
     type = case lines[start_idx]

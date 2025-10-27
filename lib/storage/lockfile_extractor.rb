@@ -56,7 +56,7 @@ class LockfileExtractor
   end
 
   def fetch_github_commits(since)
-    commits = @github_client.fetch_gemfile_lock_commits(@repo_path)
+    commits = @github_client.fetch_gemfile_lock_commits(@repo_path, since: since)
 
     if since
       since_date = Date.parse(since)
