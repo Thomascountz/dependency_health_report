@@ -23,6 +23,8 @@ class PlaintextReporter < Reporter
     return if rows.empty?
 
     table_lines(rows).each { |line| @io.puts(line) }
+
+    footer(results)
   end
 
   private
@@ -80,5 +82,13 @@ class PlaintextReporter < Reporter
     return value.strftime("%Y-%m-%d") if value.respond_to?(:strftime)
 
     value.to_s
+  end
+
+  def footer(results)
+    system_libyears = results.sum(&:libyear_in_days) / 365.0
+    @io.puts "System is #{float_or_unknown(system_libyears)} libyears behind"
+
+    system_version_distance = results.sum(&:version_distance)
+    @io.puts "Total releases behind: #{numeric_or_unknown(system_version_distance)}"
   end
 end
