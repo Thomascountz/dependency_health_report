@@ -24,8 +24,8 @@ class LockfileParser
   DEPENDENCY_ENTRY = /^      ([^ (]+)(?: \(([^)]+)\))?$/
   TOP_LEVEL_DEPENDENCY = /^  ([^ (]+)(?: \(([^)]+)\))?(!)?$/
   PLATFORM_ENTRY = /^  (.+)$/
-  VERSION_LINE = /^   (.+)$/
-  BUNDLED_VERSION = /^   (.+)$/
+  VERSION_LINE = /^   ?([^ ].+)$/
+  BUNDLED_VERSION = /^   ?([^ ].+)$/
 
   def initialize(logger: StructuredLogger.new($stderr))
     @logger = logger
