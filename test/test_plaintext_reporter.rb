@@ -124,8 +124,8 @@ class PlaintextReporterTest < Minitest::Test
     reporter.generate(results)
 
     output_text = output.string
-    # 712 / 356.0 = 2.0
-    assert_includes output_text, "2.0"
+    # 712 / 365.0 = 1.95
+    assert_includes output_text, " 1.95\n"
   end
 
   def test_handles_empty_results

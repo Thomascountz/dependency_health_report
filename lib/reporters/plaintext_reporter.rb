@@ -11,7 +11,7 @@ class PlaintextReporter < Reporter
     {header: "Latest Date", alignment: :left, value: ->(result) { format_date(result.latest_version_release_date) }},
     {header: "Versions", alignment: :right, value: ->(result) { numeric_or_unknown(result.version_distance) }},
     {header: "Days", alignment: :right, value: ->(result) { numeric_or_unknown(result.libyear_in_days) }},
-    {header: "Years", alignment: :right, value: ->(result) { numeric_or_unknown((result.libyear_in_days / 356.0).round(2)) }}
+    {header: "Years", alignment: :right, value: ->(result) { float_or_unknown(result.libyear_in_days / 365.0) }}
   ].freeze
 
   def initialize(io: $stdout)
@@ -69,6 +69,10 @@ class PlaintextReporter < Reporter
 
   def numeric_or_unknown(value)
     value.nil? ? "Unknown" : value.to_s
+  end
+
+  def float_or_unknown(value, precision: 2)
+    value.nil? ? "Unknown" : ("%.#{precision}f" % value)
   end
 
   def format_date(value)
