@@ -2,7 +2,6 @@
 
 require_relative "lockfile_extractor"
 require_relative "dependency_reporter"
-require_relative "../../dependency_health_report"
 
 class SnapshotProcessor
   def initialize(database, logger)
