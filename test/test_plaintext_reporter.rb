@@ -26,6 +26,9 @@ class PlaintextReporterTest < Minitest::Test
     assert_includes output_lines[2], "rails"
     assert_includes output_lines[2], "6.0.0"
     assert_includes output_lines[2], "7.0.0"
+
+    assert_includes output_lines[3], "System is 1.00 libyears behind"
+    assert_includes output_lines[4], "Total releases behind: 2"
   end
 
   def test_generates_report_with_multiple_results_sorted_by_name
@@ -124,8 +127,8 @@ class PlaintextReporterTest < Minitest::Test
     reporter.generate(results)
 
     output_text = output.string
-    # 712 / 356.0 = 2.0
-    assert_includes output_text, "2.0"
+    # 712 / 365.0 = 1.95
+    assert_includes output_text, " 1.95\n"
   end
 
   def test_handles_empty_results

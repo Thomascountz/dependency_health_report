@@ -11,7 +11,7 @@ class PlaintextReporter < Reporter
     {header: "Latest Date", alignment: :left, value: ->(result) { format_date(result.latest_version_release_date) }},
     {header: "Versions", alignment: :right, value: ->(result) { numeric_or_unknown(result.version_distance) }},
     {header: "Days", alignment: :right, value: ->(result) { numeric_or_unknown(result.libyear_in_days) }},
-    {header: "Years", alignment: :right, value: ->(result) { numeric_or_unknown((result.libyear_in_days / 356.0).round(2)) }}
+    {header: "Years", alignment: :right, value: ->(result) { float_or_unknown(result.libyear_in_days / 365.0) }}
   ].freeze
 
   def initialize(io: $stdout)
@@ -23,6 +23,8 @@ class PlaintextReporter < Reporter
     return if rows.empty?
 
     table_lines(rows).each { |line| @io.puts(line) }
+
+    footer(results)
   end
 
   private
@@ -71,10 +73,22 @@ class PlaintextReporter < Reporter
     value.nil? ? "Unknown" : value.to_s
   end
 
+  def float_or_unknown(value, precision: 2)
+    value.nil? ? "Unknown" : ("%.#{precision}f" % value)
+  end
+
   def format_date(value)
     return "Unknown" if value.nil?
     return value.strftime("%Y-%m-%d") if value.respond_to?(:strftime)
 
     value.to_s
+  end
+
+  def footer(results)
+    system_libyears = results.sum(&:libyear_in_days) / 365.0
+    @io.puts "System is #{float_or_unknown(system_libyears)} libyears behind"
+
+    system_version_distance = results.sum(&:version_distance)
+    @io.puts "Total releases behind: #{numeric_or_unknown(system_version_distance)}"
   end
 end
