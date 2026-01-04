@@ -9,6 +9,7 @@ gem "json"
 gem "logger"
 gem "sqlite3"
 gem "stringio"
+gem "faraday-retry"
 
 # Storage project dependencies
 gem "sequel", "~> 5.0"
