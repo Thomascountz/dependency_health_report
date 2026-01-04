@@ -139,7 +139,7 @@ class LockfileParserTest < Minitest::Test
     assert_equal ">= 13.0", result.dependencies[1].version_requirements
   end
 
-  def test_parses_ruby_version
+  def test_parses_ruby_version_on_bundler_2
     parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
@@ -165,7 +165,33 @@ class LockfileParserTest < Minitest::Test
     assert_equal "0", result.ruby_version.patchlevel
   end
 
-  def test_parses_bundled_with_version
+  def test_parses_ruby_version_on_bundler_4
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
+    lockfile_content = <<~LOCKFILE
+      GEM
+        remote: https://rubygems.org/
+        specs:
+
+      PLATFORMS
+        ruby
+
+      DEPENDENCIES
+
+      RUBY VERSION
+        ruby 3.4.6p0
+
+      BUNDLED WITH
+        4.0.3
+    LOCKFILE
+
+    result = parser.parse(lockfile_content)
+
+    refute_nil result.ruby_version
+    assert_equal "3.4.6", result.ruby_version.version
+    assert_equal "0", result.ruby_version.patchlevel
+  end
+
+  def test_parses_bundled_with_version_on_bundler_2
     parser = LockfileParser.new(logger: StructuredLogger.new(nil))
     lockfile_content = <<~LOCKFILE
       GEM
@@ -184,6 +210,27 @@ class LockfileParserTest < Minitest::Test
     result = parser.parse(lockfile_content)
 
     assert_equal "2.6.2", result.bundled_with
+  end
+
+  def test_parses_bundled_with_version_on_bundler_4
+    parser = LockfileParser.new(logger: StructuredLogger.new(nil))
+    lockfile_content = <<~LOCKFILE
+      GEM
+        remote: https://rubygems.org/
+        specs:
+
+      PLATFORMS
+        ruby
+
+      DEPENDENCIES
+
+      BUNDLED WITH
+        4.0.3
+    LOCKFILE
+
+    result = parser.parse(lockfile_content)
+
+    assert_equal "4.0.3", result.bundled_with
   end
 
   def test_parses_git_source
